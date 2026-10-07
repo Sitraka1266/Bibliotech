@@ -17,10 +17,10 @@ class AdherentController extends Controller
     public function index(Request $request)
     {
         $adherents = Adherent::query()
-            ->withCount(['emprunts as emprunts_en_cours_count' => fn ($q) => $q->whereNull('date_retour_effective')])
+            ->withCount(['emprunts as emprunts_en_cours_count' => fn($q) => $q->whereNull('date_retour_effective')])
             ->when($request->filled('q'), function ($query) use ($request) {
                 $s = trim($request->q);
-                $query->where(fn ($w) => $w->where('nom', 'like', "%{$s}%")
+                $query->where(fn($w) => $w->where('nom', 'like', "%{$s}%")
                     ->orWhere('prenom', 'like', "%{$s}%")
                     ->orWhere('email', 'like', "%{$s}%"));
             })
@@ -68,7 +68,6 @@ class AdherentController extends Controller
     {
         $data = $request->validated();
         unset($data['photo']);
-
         $photo = $request->file('photo');
         if ($photo instanceof UploadedFile) {
             $data['photo_path'] = $this->storeProfilePhoto($photo);
@@ -81,11 +80,13 @@ class AdherentController extends Controller
             $this->deleteProfilePhoto($oldPhotoPath, $adherent->id);
         }
 
+
         return redirect()->route('adherents.index')->with('success', 'Adhérent modifié avec succès.');
     }
 
     private function storeProfilePhoto(UploadedFile $photo): string
     {
+
         $path = $photo->store('adherents', 'public');
 
         if ($path === false) {

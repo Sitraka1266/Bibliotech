@@ -16,7 +16,7 @@ class AdherentRequest extends BaseRequest
             'email' => ['required', 'email', 'max:255', Rule::unique('adherents', 'email')->ignore($adherent?->id)],
             'telephone' => ['nullable', 'string', 'max:30'],
             'date_inscription' => ['required', 'date'],
-            'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
         ];
     }
 
@@ -24,6 +24,10 @@ class AdherentRequest extends BaseRequest
     {
         return parent::messages() + [
             'email.unique' => 'Cette adresse email est déjà utilisée par un autre adhérent.',
+            'photo.image' => 'Le fichier doit être une image.',
+            'photo.mimes' => 'Le fichier doit être au format JPG, JPEG, PNG ou WEBP.',
+            'photo.max' => 'La taille de l\'image ne doit pas dépasser 10 Mo.',
+            'photo.uploaded' => 'La photo n’a pas pu être envoyée. Vérifiez qu’elle ne dépasse pas 10 Mo, puis réessayez.',
         ];
     }
 

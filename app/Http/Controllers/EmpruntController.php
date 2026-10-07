@@ -7,12 +7,16 @@ use App\Models\Adherent;
 use App\Models\Emprunt;
 use App\Models\Livre;
 use DomainException;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class EmpruntController extends Controller
 {
     public const MAX_EMPRUNTS = 3;
+
     public const DUREE_DEFAUT = 14;
 
     /** F7 : emprunts en cours avec mise en évidence des retards */
@@ -20,6 +24,7 @@ class EmpruntController extends Controller
     {
         $tous = $request->boolean('tous');
 
+        /** @var Collection<int, Emprunt> $emprunts */
         $emprunts = Emprunt::query()
             ->with(['livre', 'adherent'])
             ->when(! $tous, fn ($q) => $q->enCours())
@@ -90,28 +95,58 @@ class EmpruntController extends Controller
         return back()->with('success', 'Retour enregistré : le livre est de nouveau en stock.');
     }
 
-    /** F12 : export CSV des emprunts en cours */
-    public function export()
+    /** F12 : export CSV filtrable des emprunts */
+    public function export(Request $request)
     {
-        $emprunts = Emprunt::enCours()->with(['livre', 'adherent'])->orderBy('date_retour_prevue')->get();
+        $filters = $request->validate([
+            'statut' => ['sometimes', Rule::in(['en_cours', 'historique', 'tous'])],
+            'periode' => ['nullable', 'integer', 'min:1', 'max:120'],
+            'unite' => ['nullable', 'required_with:periode', Rule::in(['semaines', 'mois'])],
+        ]);
+        $statut = $filters['statut'] ?? 'en_cours';
+
+        /** @var Collection<int, Emprunt> $emprunts */
+        $emprunts = Emprunt::query()
+            ->with(['livre', 'adherent'])
+            ->when($statut === 'en_cours', fn ($query) => $query->enCours())
+            ->when($statut === 'historique', fn ($query) => $query->whereNotNull('date_retour_effective'))
+            ->when(isset($filters['periode']), function ($query) use ($filters) {
+                $dateDebut = match ($filters['unite']) {
+                    'semaines' => today()->subWeeks((int) $filters['periode']),
+                    'mois' => today()->subMonths((int) $filters['periode']),
+                };
+
+                $query->whereDate('date_emprunt', '>=', $dateDebut->toDateString())
+                    ->whereDate('date_emprunt', '<=', today()->toDateString());
+            })
+            ->orderBy('date_emprunt')
+            ->orderBy('id')
+            ->get();
+
+        $nomFichier = 'emprunts_'.$statut;
+        if (isset($filters['periode'])) {
+            $nomFichier .= '_'.$filters['periode'].'_'.$filters['unite'];
+        }
 
         return response()->streamDownload(function () use ($emprunts) {
             $out = fopen('php://output', 'w');
             fwrite($out, "\xEF\xBB\xBF"); // BOM UTF-8 pour Excel
-            fputcsv($out, ['Livre', 'ISBN', 'Adhérent', 'Email', 'Date emprunt', 'Retour prévu', 'En retard', 'Jours de retard'], ';');
+            fputcsv($out, ['Livre', 'ISBN', 'Adhérent', 'Email', 'Date emprunt', 'Retour prévu', 'Date retour effectif', 'Statut', 'En retard', 'Jours de retard'], ';');
             foreach ($emprunts as $e) {
                 fputcsv($out, [
                     $e->livre->titre,
                     $e->livre->isbn,
                     $e->adherent->nomComplet(),
                     $e->adherent->email,
-                    $e->date_emprunt->format('d/m/Y'),
-                    $e->date_retour_prevue->format('d/m/Y'),
+                    Carbon::parse($e->date_emprunt)->format('d/m/Y'),
+                    Carbon::parse($e->date_retour_prevue)->format('d/m/Y'),
+                    $e->date_retour_effective ? Carbon::parse($e->date_retour_effective)->format('d/m/Y') : '',
+                    $e->estEnCours() ? 'En cours' : 'Historique',
                     $e->estEnRetard() ? 'Oui' : 'Non',
                     $e->joursDeRetard(),
                 ], ';');
             }
             fclose($out);
-        }, 'emprunts_en_cours_'.today()->format('Y-m-d').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+        }, $nomFichier.'_'.today()->format('Y-m-d').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 }

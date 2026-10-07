@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Console\Commands\ServeWithUploadLimitsCommand;
+use Illuminate\Console\Application as ConsoleApplication;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -19,6 +21,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        if (app()->environment('local')) {
+            ConsoleApplication::starting(static function (ConsoleApplication $artisan): void {
+                $artisan->add(new ServeWithUploadLimitsCommand);
+            });
+        }
     }
 }
