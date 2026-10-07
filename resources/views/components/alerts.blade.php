@@ -3,7 +3,7 @@
         <i class="fa-solid fa-circle-check mr-2"></i>{{ session('success') }}
     </div>
 @endif
-@foreach (['emprunt', 'suppression', 'auth'] as $key)
+@foreach ((request()->routeIs('emprunts.create') ? ['suppression', 'auth'] : ['emprunt', 'suppression', 'auth']) as $key)
     @foreach ($errors->get($key) as $message)
         <div class="mb-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-red-800">
             <i class="fa-solid fa-triangle-exclamation mr-2"></i>{{ $message }}

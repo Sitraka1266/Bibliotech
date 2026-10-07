@@ -26,6 +26,8 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/emprunts', [EmpruntController::class, 'index'])->name('emprunts.index');
     Route::get('/emprunts/export', [EmpruntController::class, 'export'])->name('emprunts.export');
+    Route::get('/emprunts/recherche/livres', [EmpruntController::class, 'rechercherLivres'])->name('emprunts.recherche.livres');
+    Route::get('/emprunts/recherche/adherents', [EmpruntController::class, 'rechercherAdherents'])->name('emprunts.recherche.adherents');
     Route::get('/emprunts/nouveau', [EmpruntController::class, 'create'])->name('emprunts.create');
     Route::post('/emprunts', [EmpruntController::class, 'store'])->name('emprunts.store');
     Route::post('/emprunts/{emprunt}/retour', [EmpruntController::class, 'retour'])->name('emprunts.retour');

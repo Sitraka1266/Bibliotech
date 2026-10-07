@@ -8,6 +8,7 @@ use App\Models\Emprunt;
 use App\Models\Livre;
 use DomainException;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -15,7 +16,7 @@ use Illuminate\Validation\Rule;
 
 class EmpruntController extends Controller
 {
-    public const MAX_EMPRUNTS = 3;
+    public const MAX_EMPRUNTS = 1;
 
     public const DUREE_DEFAUT = 14;
 
@@ -35,13 +36,69 @@ class EmpruntController extends Controller
         return view('emprunts.index', compact('emprunts', 'tous'));
     }
 
-    public function create()
+    public function create(Request $request)
     {
+        $livreId = filter_var($request->old('livre_id'), FILTER_VALIDATE_INT);
+        $adherentId = filter_var($request->old('adherent_id'), FILTER_VALIDATE_INT);
+
         return view('emprunts.create', [
-            'livres' => Livre::where('quantite_disponible', '>', 0)->orderBy('titre')->get(),
-            'adherents' => Adherent::orderBy('nom')->orderBy('prenom')->get(),
+            'livreSelectionne' => is_int($livreId) && $livreId > 0 ? Livre::find($livreId) : null,
+            'adherentSelectionne' => is_int($adherentId) && $adherentId > 0 ? Adherent::find($adherentId) : null,
             'dureeDefaut' => self::DUREE_DEFAUT,
         ]);
+    }
+
+    public function rechercherLivres(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'q' => ['required', 'string', 'min:2', 'max:100'],
+        ]);
+        $terme = trim($validated['q']);
+
+        $livres = Livre::query()
+            ->select(['id', 'titre', 'auteur', 'isbn', 'quantite_disponible'])
+            ->where('quantite_disponible', '>', 0)
+            ->where(function ($query) use ($terme) {
+                $query->where('titre', 'like', "%{$terme}%")
+                    ->orWhere('auteur', 'like', "%{$terme}%")
+                    ->orWhere('isbn', 'like', "%{$terme}%");
+            })
+            ->orderBy('titre')
+            ->limit(15)
+            ->get()
+            ->map(fn (Livre $livre): array => [
+                'id' => $livre->id,
+                'text' => "{$livre->titre} — {$livre->auteur} ({$livre->quantite_disponible} dispo.)",
+            ]);
+
+        return response()->json(['results' => $livres]);
+    }
+
+    public function rechercherAdherents(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'q' => ['required', 'string', 'min:2', 'max:100'],
+        ]);
+        $terme = trim($validated['q']);
+
+        $adherents = Adherent::query()
+            ->select(['id', 'nom', 'prenom', 'email', 'telephone'])
+            ->where(function ($query) use ($terme) {
+                $query->where('nom', 'like', "%{$terme}%")
+                    ->orWhere('prenom', 'like', "%{$terme}%")
+                    ->orWhere('email', 'like', "%{$terme}%")
+                    ->orWhere('telephone', 'like', "%{$terme}%");
+            })
+            ->orderBy('nom')
+            ->orderBy('prenom')
+            ->limit(15)
+            ->get()
+            ->map(fn (Adherent $adherent): array => [
+                'id' => $adherent->id,
+                'text' => $adherent->nomComplet().' — '.$adherent->email,
+            ]);
+
+        return response()->json(['results' => $adherents]);
     }
 
     /** F4 : règles de gestion 1, 2, 3 et 4 */

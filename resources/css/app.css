@@ -7,6 +7,23 @@
 @source '../**/*.js';
 
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    --font-sans: 'Roboto', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+}
+.btn {
+  @apply font-bold py-2 px-4 rounded ;
+}
+.btn-primary {
+  @apply bg-blue-500 text-white hover:bg-blue-700;
+}   
+
+.btn-gray {
+  @apply bg-gray-500 text-white hover:bg-gray-700;
+}
+.btn-danger {
+  @apply bg-red-500 text-white hover:bg-red-700;
+}
+
+.btn-success {
+  @apply bg-green-500 text-white hover:bg-green-700;
 }
